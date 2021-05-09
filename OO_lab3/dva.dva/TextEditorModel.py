@@ -5,18 +5,25 @@ from UndoManager import *
 
 class TextEditorModel:
     def __init__(self, initial_text):
-        self.lines = initial_text.split('\n')
-        self.selectionRange = None
-        self.cursorLocation = Location()
+        self.lines = None
         self.cursor_observers = []
         self.text_observers = []
         self.undoManager = UndoManager.getInstance()
+        self.all_new_lines(initial_text)
+    
+    def all_new_lines(self, content):
+        self.lines = content.split('\n')
+        self.cursorLocation = Location()
+        self.selectionRange = None
+        self.undoManager.reset()
+        self.notify_cursor_observers()
+        self.notify_text_observers()
 
     def notify_text_observers(self):
         for o in self.text_observers: o.update_text()
     
     def notify_cursor_observers(self):
-        for o in self.text_observers: o.updateCursorLocation(self.cursorLocation)
+        for o in self.cursor_observers: o.updateCursorLocation(self.cursorLocation)
     
     def valid_location(self, l):
         if l.row >= 0 and l.row < len(self.lines) and \
@@ -52,6 +59,13 @@ class TextEditorModel:
     def remove_cursor_observer(self, o):
         if o in self.cursor_observers:
             self.cursor_observers.remove(o)
+    
+    def set_cursor(self, loc):
+        self.cursorLocation = copy_Location(loc)
+        self.notify_cursor_observers()
+    
+    def get_last_loc(self):
+        return Location(len(self.lines)-1, len(self.lines[-1]))
 
     def add_text_observer(self, o):
         self.text_observers.append(o)
@@ -124,6 +138,7 @@ class TextEditorModel:
 
         if not no_notify:
             self.notify_text_observers()
+            self.notify_cursor_observers()
         
         return char
             
@@ -149,6 +164,7 @@ class TextEditorModel:
         
         if not private: self.undoManager.push(deleteAfterAction(self, char, old_loc))
         self.notify_text_observers()
+        self.notify_cursor_observers()
 
     def deleteRange(self, r, private=False):
         if self.valid_range(r):
@@ -159,6 +175,7 @@ class TextEditorModel:
             while self.cursorLocation != lstart:
                 text += self.deleteBefore(private=True, no_notify=True)
             self.notify_text_observers()
+            self.notify_cursor_observers()
 
             if not private: 
                 text = text[::-1]
@@ -205,6 +222,7 @@ class TextEditorModel:
         end_loc = copy_Location(self.cursorLocation)
         if not private: self.undoManager.push(InsertAction(self, text, LocationRange(start_loc, end_loc)))
         self.notify_text_observers()
+        self.notify_cursor_observers()
 
         
             
